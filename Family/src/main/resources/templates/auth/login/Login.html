@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns="http://www.w3.org/1999/xhtml"
+	xmlns:th="http://www.thymeleaf.org"
+	xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+	th:replace="layout/Base::layout(
+    	~{::head/content()},
+    	~{::#content/content()}, 
+    )">
+<head>
+	<title>Login</title>
+</head>
+<body>
+<div id="content">
+
+<form action="" method="post" th:object="${form}" style="max-width: 800px; margin: auto;">
+	<ul class="text-danger">
+			<li th:each="item:${#fields.globalErrors()}">[[${item}]]</li>
+	</ul>
+	<div class="form-group">
+		<label for="username">Username:</label>
+		<input type="text" th:field="*{username}" class="form-control" required>
+		<ul class="text-danger" th:if="${#fields.hasErrors('username')}">
+			<li th:each="item:${#fields.errors('username')}">[[${item}]]</li>
+		</ul>
+	</div>
+	<div class="form-group">
+		<label for="password">Password:</label>
+		<input type="password" th:field="*{password}"  class="form-control" required>
+		<ul class="text-danger" th:if="${#fields.hasErrors('password')}">
+			<li th:each="item:${#fields.errors('password')}">[[${item}]]</li>
+		</ul>
+	</div>
+	<input type="submit" value="Login" class="btn btn-success">
+	</form>
+</div>
+	
+</body>
+</html>
