@@ -8,6 +8,8 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
+import javax.persistence.criteria.JoinType;
+
 @Target({ FIELD, METHOD })
 @Retention(RUNTIME)
 @Documented
@@ -19,5 +21,6 @@ public @interface FilterColumn {
 	 * @return
 	 */
 	CompareType compare() default CompareType.Equal;
-	boolean negative() default false;
+	boolean isJoinColumn() default false;
+	JoinType joinType() default JoinType.LEFT;
 }

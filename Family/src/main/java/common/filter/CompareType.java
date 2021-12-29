@@ -8,7 +8,5 @@ public enum CompareType {
 	LessThan,
 	EqualLessThan,
 	EqualGreaterThan,
-	HasContains,
-	In,
-	NotIn
+	HasContains
 }

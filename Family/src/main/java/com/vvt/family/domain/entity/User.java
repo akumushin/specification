@@ -13,6 +13,9 @@ import javax.persistence.ManyToMany;
 import javax.persistence.SequenceGenerator;
 import javax.persistence.Table;
 
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
+
 import common.filter.FilterColumn;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -44,6 +47,7 @@ public class User {
 		joinColumns = @JoinColumn(name="user_id"),
 		inverseJoinColumns = @JoinColumn(name="permission_id")
 	)
+	@Fetch(FetchMode.JOIN)
 	private List<Permission> permissions;
 	
 	@ManyToMany
