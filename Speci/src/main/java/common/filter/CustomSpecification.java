@@ -20,7 +20,12 @@ import javax.persistence.criteria.Predicate;
 import javax.persistence.criteria.Root;
 
 import org.springframework.data.jpa.domain.Specification;
-
+/**
+ * 
+ * @author Vu van thuong
+ *
+ * @param <T>
+ */
 public class CustomSpecification<T> implements Specification<T>{
 	private static final long serialVersionUID = 1L;
 	private Object filter;

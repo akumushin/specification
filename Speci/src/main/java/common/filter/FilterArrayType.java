@@ -1,5 +1,9 @@
 package common.filter;
-
+/**
+ * 
+ * @author Vu van thuong
+ *
+ */
 public enum FilterArrayType {
 	/**
 	 * = In

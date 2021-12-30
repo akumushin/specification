@@ -1,5 +1,9 @@
 package common.filter;
-
+/**
+ * 
+ * @author vu van thuong
+ *
+ */
 public class FilterException extends RuntimeException{
 	public FilterException(String string) {
 		super(string);

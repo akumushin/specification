@@ -10,6 +10,11 @@ import java.lang.annotation.Target;
 
 import javax.persistence.criteria.JoinType;
 
+/**
+ * 
+ * @author vu van thuong
+ *
+ */
 @Target({ FIELD, METHOD })
 @Retention(RUNTIME)
 @Documented
