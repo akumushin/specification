@@ -109,8 +109,10 @@ public class CustomSpecification<T> implements Specification<T>{
 					switch(filterColumn.compare()){
 					case Equal:
 						predicate.getExpressions().add( toCustomPredicate(join, cb, fieldValue));
+						break;
 					case NotEqual:
 						predicate.getExpressions().add(  cb.not(toCustomPredicate(join, cb, fieldValue)));
+						break;
 					default:
 						throw new FilterException(fieldName + " error with FilterJoinColumn.compare()");
 					}
