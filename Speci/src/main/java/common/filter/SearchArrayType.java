@@ -4,7 +4,7 @@ package common.filter;
  * @author Vu van thuong
  *
  */
-public enum FilterArrayType {
+public enum SearchArrayType {
 	/**
 	 * = In
 	 */
@@ -15,5 +15,7 @@ public enum FilterArrayType {
 	NotAny,
 	
 	All,
-	NotAll
+	NotAll,
+	In,
+	NotIn
 }

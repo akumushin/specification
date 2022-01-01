@@ -18,7 +18,7 @@ import javax.persistence.criteria.JoinType;
 @Target({ FIELD, METHOD })
 @Retention(RUNTIME)
 @Documented
-public @interface FilterColumn {
+public @interface SearchJoinColumn {
 	String name() default "";
 	/**
 	 * Table column Equal(==) or Smaller(<) or  Greater(>).... this column
@@ -26,6 +26,6 @@ public @interface FilterColumn {
 	 * @return
 	 */
 	CompareType compare() default CompareType.Equal;
-	boolean isJoinColumn() default false;
 	JoinType joinType() default JoinType.LEFT;
+	SearchArrayType arrayType() default SearchArrayType.All;
 }

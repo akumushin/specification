@@ -2,13 +2,12 @@ package common.filter;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
-
+import java.util.Set;
+import java.util.function.Function;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Expression;
@@ -29,8 +28,8 @@ import org.springframework.data.jpa.domain.Specification;
 public class CustomSpecification<T> implements Specification<T>{
 	private static final long serialVersionUID = 1L;
 	private Object filter;
-	private final List<FetchAttribute> fetchFields;
-	public List<FetchAttribute> getFetchFields() {
+	private final Set<FetchAttribute> fetchFields;
+	public Set<FetchAttribute> getFetchFields() {
 		return fetchFields;
 	}
 	public Object getFilter() {
@@ -52,8 +51,11 @@ public class CustomSpecification<T> implements Specification<T>{
 	}
 	public CustomSpecification(Object filter) {
 		this.setFilter(filter);
-		this.fetchFields= new ArrayList<>();
+		this.fetchFields= new HashSet<>();
 	}
+	/**
+	 * 
+	 */
 	@Override
 	public Predicate toPredicate(Root<T> root, CriteriaQuery<?> query, CriteriaBuilder cb) {
 		for(FetchAttribute name: fetchFields) {
@@ -62,6 +64,12 @@ public class CustomSpecification<T> implements Specification<T>{
 		query.distinct(true);
 		return CustomSpecification.toCustomPredicate(root, cb, filter);
 	}
+	/**
+	 * 
+	 * @param root
+	 * @param fetchAttr
+	 * @return
+	 */
 	private void addFetch(FetchParent<?,?> root, FetchAttribute fetchAttr) {
 		FetchParent<?,?> fetch = root.fetch(fetchAttr.getAttribute(), fetchAttr.getJoinType());
 		for(FetchAttribute sub: fetchAttr.getSubFetchAttribute()) {
@@ -86,7 +94,6 @@ public class CustomSpecification<T> implements Specification<T>{
 			Object fieldValue=field.getName();
 			String fieldName=field.getName();
 			try {
-				
 				fieldValue = field.get(filter);
 				if(fieldValue==null)
 					throw new IllegalArgumentException("null");
@@ -94,108 +101,30 @@ public class CustomSpecification<T> implements Specification<T>{
 			} catch (IllegalArgumentException | IllegalAccessException e) {
 				continue;
 			}
-			// get filter annotation
-			FilterArray filterArray = field.getAnnotation(FilterArray.class);
-			FilterColumn filterColumn = field.getAnnotation(FilterColumn.class);
+			SearchColumn searchColumn = field.getAnnotation(SearchColumn.class);
+			SearchJoinColumn searchJoinColumn = field.getAnnotation(SearchJoinColumn.class);
 			// filterColumn==null same the field is not filter column
-			if(filterColumn == null)
-				continue;
-			//update field name, if filterColumn.name() not blank
-			if(filterColumn.name().length()>0)
-				fieldName= filterColumn.name();
-			
-			// =======================Not is array or list================================
-			if(filterArray ==null) {
-				// default column
-				if(!filterColumn.isJoinColumn()) {
-					predicate.getExpressions().add(conditionWith(root, cb, fieldName, fieldValue, filterColumn.compare()));
-				}else {	// join column
-					Join<?,?> join = root.join(fieldName, filterColumn.joinType());
-					switch(filterColumn.compare()){
-					case Equal:
-						predicate.getExpressions().add( toCustomPredicate(join, cb, fieldValue));
-						break;
-					case NotEqual:
-						predicate.getExpressions().add(  cb.not(toCustomPredicate(join, cb, fieldValue)));
-						break;
-					default:
-						throw new FilterException(fieldName + " error with FilterJoinColumn.compare()");
-					}
-				}
-				continue;
+			if(searchColumn != null) {//----------------is column-------------------
+				//update field name, if filterColumn.name() not blank
+				if(searchColumn.name().length()>0)
+					fieldName= searchColumn.name();
+				predicate.getExpressions().add(
+						conditionWithColumn(root, cb, fieldName, fieldValue, 
+								searchColumn.compare(),
+								searchColumn.arrayType())
+						);
+			}else if (searchJoinColumn!=null) { //------------is join column------------
+				//update field name, if filterJoinColumn.name() not blank
+				if(searchJoinColumn.name().length()>0)
+					fieldName= searchJoinColumn.name();
+				predicate.getExpressions().add(
+						conditionWithJoinColumn(root, cb, fieldName, fieldValue, 
+								searchJoinColumn.compare(), 
+								searchJoinColumn.arrayType(),
+								searchJoinColumn.joinType())
+						);
 			}
-			// ======================== Array or list (down to end method)======================================
-			// get items of filter field return items
-			List<Object> items = new ArrayList<>();
-			if(fieldValue.getClass().isArray()) {
-				for(int i =0; i<Array.getLength(fieldValue);i++)
-					items.add(Array.get(fieldValue,i));
-			}else if(fieldValue instanceof Collection<?>) {
-				((Collection<?>)fieldValue)
-					.forEach((item)-> items.add(item));
-			}else {
-				throw new FilterException(fieldName +" is not array or collection");
-			}
-			// sub predicate can replace to IN or NOT IN condition
-			if(		!filterColumn.isJoinColumn() 
-					&& filterArray.arrayType()== FilterArrayType.Any 
-					&& filterColumn.compare()==CompareType.Equal ) {
-				predicate.getExpressions().add(root.get(fieldName).in(items));
-				continue;
-			}
-			if(		!filterColumn.isJoinColumn() 
-					&& filterArray.arrayType()== FilterArrayType.NotAny
-					&& filterColumn.compare()==CompareType.Equal ) {
-				predicate.getExpressions().add(cb.not(root.get(fieldName).in(items)));
-				continue;
-			}
-			// sub predicate can't replace to IN or NOT IN condition
-			List<Expression<Boolean> > expressions = new ArrayList<>();
-			if(!filterColumn.isJoinColumn()) {
-				//this field is not join column
-				for(Object item: items)
-					expressions.add(conditionWith(root, cb, fieldName, item, filterColumn.compare()));
-			}else {
-				//this field is join column
-				Join<?,?> join = root.join(fieldName, filterColumn.joinType());
-				for(Object item: items) {
-					switch(filterColumn.compare()){
-					case Equal:
-						expressions.add( toCustomPredicate(join, cb, item));
-						break;
-					case NotEqual:
-						expressions.add( cb.not(toCustomPredicate(join, cb, item)));
-						break;
-					default:
-						throw new FilterException(fieldName + " error with FilterJoinColumn.compare()");
-					}
-				}
-					
-			}
-			Predicate subPredicate;
-			switch(filterArray.arrayType()) {
-			case Any:
-				subPredicate = cb.disjunction();
-				subPredicate.getExpressions().addAll(expressions);
-				predicate.getExpressions().add(subPredicate);
-				break;
-			case NotAny:
-				subPredicate = cb.disjunction();
-				subPredicate.getExpressions().addAll(expressions);
-				predicate.getExpressions().add(cb.not(subPredicate));
-				break;
-			case All:
-				subPredicate = cb.conjunction();
-				subPredicate.getExpressions().addAll(expressions);
-				predicate.getExpressions().add(subPredicate);
-				break;
-			case NotAll:
-				subPredicate = cb.conjunction();
-				subPredicate.getExpressions().addAll(expressions);
-				predicate.getExpressions().add(cb.not(subPredicate));
-				break;
-			}
-		}// end for field
+		}
 		return predicate;
 		
 	}
@@ -208,100 +137,119 @@ public class CustomSpecification<T> implements Specification<T>{
 	 * @param type
 	 * @return
 	 */
-	public static Expression<Boolean> conditionWith(From<?,?> root, CriteriaBuilder cb, String fieldName, Object fieldValue, CompareType type){
-		if(fieldValue instanceof Boolean)
-			return conditionWithComparable(root, cb, fieldName, (Boolean)fieldValue, type);
-		if(fieldValue instanceof String)
-			return conditionWithString(root, cb, fieldName, (String)fieldValue, type);
-		if(fieldValue instanceof Integer)
-			return conditionWithComparable(root, cb, fieldName, (Integer)fieldValue, type);
-		if(fieldValue instanceof Double)
-			return conditionWithComparable(root, cb, fieldName, (Double)fieldValue, type);
-		if(fieldValue instanceof LocalDateTime)
-			return conditionWithComparable(root, cb, fieldName, (LocalDateTime)fieldValue, type);
-		if(fieldValue instanceof LocalDate)
-			return conditionWithComparable(root, cb, fieldName, (LocalDate)fieldValue, type);
-		if(fieldValue instanceof Timestamp)
-			return conditionWithComparable(root, cb, fieldName, (Timestamp)fieldValue, type);
-		if(fieldValue instanceof java.sql.Date)
-			return conditionWithComparable(root, cb, fieldName, (java.sql.Date)fieldValue, type);
-		if(fieldValue instanceof java.util.Date)
-			return conditionWithComparable(root, cb, fieldName, (java.util.Date)fieldValue, type);
-		
-		return conditionWithDefault(root, cb, fieldName, fieldValue, type);
-	}
-	/**
-	 * build to expression<Boolean> of field is Integer, Double, Date, DateTime
-	 * @param <T>
-	 * @param root
-	 * @param cb
-	 * @param fieldName
-	 * @param value
-	 * @param type
-	 * @return
-	 */
-	public static <T extends Comparable<? super T>>Expression<Boolean> conditionWithComparable(From<?,?> root, CriteriaBuilder cb, String fieldName, T value, CompareType type) {
-		switch(type) {
-		case Equal:
-			return cb.equal(root.get(fieldName), value);
-		case NotEqual:
-			return cb.notEqual(root.get(fieldName), value);
-		case EqualGreaterThan:
-			return cb.greaterThanOrEqualTo(root.get(fieldName), value);
-		case EqualLessThan:
-			return cb.lessThanOrEqualTo(root.get(fieldName), value);
-		case GreaterThan:
-			return cb.greaterThan(root.get(fieldName), value);
-		case LessThan:
-			return cb.lessThan(root.get(fieldName), value);
-		
-		default:
-			throw new FilterException(fieldName + " filter column error");
+
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public static Expression<Boolean> conditionWithColumn(From<?,?> root, CriteriaBuilder cb, String fieldName, Object fieldValue, CompareType compare, SearchArrayType arrayType){
+		List<Object> items = new ArrayList<>();
+		if(fieldValue.getClass().isArray()) {
+			for(int i =0; i<Array.getLength(fieldValue);i++)
+				items.add(Array.get(fieldValue,i));
+		}else if(fieldValue instanceof Collection<?>) {
+			((Collection<?>)fieldValue)
+				.forEach((item)-> items.add(item));
+		}else
+			items.add(fieldValue);
+		// if in
+		if( arrayType== SearchArrayType.In 
+			&& compare==CompareType.Equal ) {
+			return root.get(fieldName).in(items);
 		}
-	}
-	/**
-	 * build to expression<Boolean> of field is Enum or User defined class
-	 * @param root
-	 * @param cb
-	 * @param fieldName
-	 * @param value
-	 * @param type
-	 * @return
-	 */
-	public static Expression<Boolean> conditionWithDefault(From<?,?> root, CriteriaBuilder cb, String fieldName, Object value, CompareType type) {
-		switch(type) {
-		case Equal:
-			return cb.equal(root.get(fieldName), value);
-		case NotEqual:
-			return cb.notEqual(root.get(fieldName), value);
-		default:
-			throw new FilterException(fieldName + " filter column error");
+		// if not in
+		if(	arrayType== SearchArrayType.NotIn
+			&& compare==CompareType.Equal ) {
+			return root.get(fieldName).in(items).not();
 		}
-	}
-	/**
-	 * build to expression<Boolean> of field is String
-	 * @param root
-	 * @param cb
-	 * @param fieldName
-	 * @param value
-	 * @param type
-	 * @return
-	 */
-	public static Expression<Boolean> conditionWithString(From<?,?> root, CriteriaBuilder cb, String fieldName, String value, CompareType type) {
-		switch(type) {
-		case Equal:
+		// get function return Expression<Boolean> >
+		final Function<Object, Expression<Boolean>> function;
+		switch(compare) {
 		case EqualGreaterThan:
+			function = (item) -> cb.greaterThanOrEqualTo(root.get(fieldName), (Comparable)item);
+			break;
 		case EqualLessThan:
+			function = (item) -> cb.lessThanOrEqualTo(root.get(fieldName), (Comparable)item);
+			break;
 		case GreaterThan:
+			function = (item) -> cb.greaterThan(root.get(fieldName), (Comparable)item);
+			break;
 		case LessThan:
+			function = (item) -> cb.lessThan(root.get(fieldName), (Comparable)item);
+			break;
 		case NotEqual:
-			return conditionWithComparable(root, cb, fieldName, value, type);
+			function = (item) -> cb.notEqual(root.get(fieldName), item);
+			break;
 		case Like:
-			return cb.like(root.get(fieldName), value);
+			function = (item) -> cb.like(root.get(fieldName), item.toString());
+			break;
 		case HasContains:
-			return cb.like(root.get(fieldName), '%'+value+'%');
+			function = (item) -> cb.like(root.get(fieldName), '%'+item.toString()+'%');
+			break;
+		default:// equal
+			function = (item) -> cb.equal(root.get(fieldName), item);
+			break;
+		}
+		List<Expression<Boolean> > expressions = new ArrayList();
+		for(Object item: items)
+			expressions.add(function.apply(item));
+		//items.stream().map(function).collect(Collectors.toList());
+		return joinList(cb, expressions, arrayType);
+		
+		
+	}
+	
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public static Expression<Boolean> conditionWithJoinColumn(From<?,?> root, CriteriaBuilder cb, String fieldName, Object fieldValue, CompareType compare, SearchArrayType arrayType, JoinType joinType){
+		List<Object> items = new ArrayList<>();
+		if(fieldValue.getClass().isArray()) {
+			for(int i =0; i<Array.getLength(fieldValue);i++)
+				items.add(Array.get(fieldValue,i));
+		}else if(fieldValue instanceof Collection<?>) {
+			((Collection<?>)fieldValue)
+				.forEach((item)-> items.add(item));
+		}else
+			items.add(fieldValue);
+		// join
+		Join<?,?> join = root.join(fieldName, joinType);
+		//System.out.println("~~~~~~~~~~~~~~~~~~"+root);
+		// get function return  Expression<Boolean>> 
+		final Function<Object, Expression<Boolean>> function;
+		switch(compare) {
+		case Equal:
+			function = (item) -> toCustomPredicate(join, cb, item);
+			break;
+		case NotEqual:
+			function = (item) -> toCustomPredicate(join, cb, item).not();
+			break;
 		default:
-			throw new FilterException(fieldName + " filter column error");
+			throw new SearchException("error filter join column :" + fieldName);
+		}
+		List<Expression<Boolean> > expressions = new ArrayList();
+		for(Object item: items)
+			expressions.add(function.apply(item));
+		//items.stream().map(function).collect(Collectors.toList());
+		return joinList(cb, expressions, arrayType);
+	}
+	
+	public static Predicate joinList(CriteriaBuilder cb, List<Expression<Boolean> > expressions, SearchArrayType type ){
+		Predicate predicate;
+		switch(type) {
+		case NotIn:
+		case NotAny:
+			predicate= cb.disjunction();
+			predicate.getExpressions().addAll(expressions);
+			return predicate.not();
+		case All:
+			predicate= cb.conjunction();
+			predicate.getExpressions().addAll(expressions);
+			return predicate;
+		case NotAll:
+			predicate= cb.conjunction();
+			predicate.getExpressions().addAll(expressions);
+			return predicate.not();
+		
+		default:// In or Any
+			predicate= cb.disjunction();
+			predicate.getExpressions().addAll(expressions);
+			return predicate;
 		}
 	}
 }

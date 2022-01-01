@@ -1,7 +1,7 @@
 package common.filter;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 import javax.persistence.criteria.JoinType;
 /**
@@ -17,11 +17,11 @@ public class FetchAttribute {
 	}
 	private String attribute;
 	private JoinType joinType;
-	private final List<FetchAttribute> subFetchBuiders = new ArrayList<>();
+	private final Set<FetchAttribute> subFetchBuiders = new HashSet<>();
 	public String getAttribute() {
 		return attribute;
 	}
-	public List<FetchAttribute> getSubFetchAttribute() {
+	public Set<FetchAttribute> getSubFetchAttribute() {
 		return subFetchBuiders;
 	}
 	/**
@@ -33,6 +33,7 @@ public class FetchAttribute {
 	public FetchAttribute addSubFetch(String name, JoinType joinType) {
 		FetchAttribute sub= new FetchAttribute(name, joinType);
 		sub.attribute=name;
+		subFetchBuiders.add(sub);
 		return sub;
 	}
 	public JoinType getJoinType() {
