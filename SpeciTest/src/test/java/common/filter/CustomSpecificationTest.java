@@ -44,6 +44,7 @@ class CustomSpecificationTest {
 	 * data initial
 	 * @throws Exception
 	 */
+	
 	@BeforeEach
 	void setUp() throws Exception {
 		for(int k=0;k<2;k++) {
