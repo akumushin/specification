@@ -54,7 +54,7 @@ public class CustomSpecification<T> implements Specification<T>{
 		this.fetchFields= new HashSet<>();
 	}
 	/**
-	 * 
+	 * @exception common.filter.SearchException
 	 */
 	@Override
 	public Predicate toPredicate(Root<T> root, CriteriaQuery<?> query, CriteriaBuilder cb) {
@@ -83,6 +83,7 @@ public class CustomSpecification<T> implements Specification<T>{
 	 * @param cb
 	 * @param filter
 	 * @return
+	 * @exception common.filter.SearchException
 	 */
 	public static Predicate toCustomPredicate(From<?,?> root, CriteriaBuilder cb, Object filter) {
 		Predicate predicate = cb.conjunction();// and predicate
@@ -195,7 +196,18 @@ public class CustomSpecification<T> implements Specification<T>{
 		
 		
 	}
-	
+	/**
+	 * 
+	 * @param root
+	 * @param cb
+	 * @param fieldName
+	 * @param fieldValue
+	 * @param compare
+	 * @param arrayType
+	 * @param joinType
+	 * @return
+	 * @exception common.filter.SearchException
+	 */
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	public static Expression<Boolean> conditionWithJoinColumn(From<?,?> root, CriteriaBuilder cb, String fieldName, Object fieldValue, CompareType compare, SearchArrayType arrayType, JoinType joinType){
 		List<Object> items = new ArrayList<>();
